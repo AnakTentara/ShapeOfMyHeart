@@ -12,15 +12,15 @@ function App() {
   const [showPlayScreen, setShowPlayScreen] = useState(true);
   const [showApp, setShowApp] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(47.0);
+  const [currentTime, setCurrentTime] = useState(6.0);
   const [activeLyricIndex, setActiveLyricIndex] = useState(-1);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const appRef = useRef<HTMLDivElement>(null);
   const isFadingOutRef = useRef(false);
 
-  const START_TIME = 47.0;
-  const END_TIME = 70.0; // 1:10
+  const START_TIME = 6.0;
+  const END_TIME = 29.0; // 1:10
   const TOTAL_PLAY_DURATION = END_TIME - START_TIME;
 
   // Initialize Audio & Preload with Progress Tracking
