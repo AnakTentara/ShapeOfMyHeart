@@ -8,5 +8,6 @@ export default defineConfig({
     host: '0.0.0.0',
     port: parseInt(process.env.PORT || process.env.SERVER_PORT || '8080'),
     strictPort: true,
+    allowedHosts: true,
   }
 })
