@@ -6,6 +6,9 @@ import { Play, Pause, ArrowCounterClockwise, X } from '@phosphor-icons/react';
 import gsap from 'gsap';
 
 function App() {
+  const [isPreloading, setIsPreloading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
   const [showPlayScreen, setShowPlayScreen] = useState(true);
   const [showApp, setShowApp] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,12 +23,79 @@ function App() {
   const END_TIME = 70.0; // 1:10
   const TOTAL_PLAY_DURATION = END_TIME - START_TIME;
 
-  // Initialize Audio
+  // Initialize Audio & Preload with Progress Tracking
   useEffect(() => {
-    const audio = new Audio('/shape_of_my_heart.ogg');
-    audio.preload = 'auto';
+    const audio = new Audio();
     audio.loop = false;
     audioRef.current = audio;
+
+    const loadAudioFile = async () => {
+      try {
+        const response = await fetch('/shape_of_my_heart.ogg');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const reader = response.body?.getReader();
+        const contentLength = +(response.headers.get('Content-Length') || 0);
+
+        if (!reader || contentLength === 0) {
+          // Fallback if reader is not available
+          const blob = await response.blob();
+          const audioUrl = URL.createObjectURL(blob);
+          audio.src = audioUrl;
+          setLoadingProgress(100);
+          gsap.to('.preloader-screen', {
+            opacity: 0,
+            duration: 0.6,
+            onComplete: () => setIsPreloading(false)
+          });
+          return;
+        }
+
+        let receivedLength = 0;
+        const chunks = [];
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedLength += value.length;
+          const percent = Math.round((receivedLength / contentLength) * 100);
+          setLoadingProgress(percent);
+        }
+
+        const blob = new Blob(chunks, { type: 'audio/ogg' });
+        const audioUrl = URL.createObjectURL(blob);
+        audio.src = audioUrl;
+        
+        // Wait briefly for a smooth transition from 100%
+        setTimeout(() => {
+          gsap.to('.preloader-screen', {
+            opacity: 0,
+            duration: 0.6,
+            onComplete: () => setIsPreloading(false)
+          });
+        }, 300);
+
+      } catch (err) {
+        console.warn("Failed to preload audio with progress tracking, falling back to direct stream:", err);
+        // Fallback: load directly from URL
+        audio.src = '/shape_of_my_heart.ogg';
+        audio.load();
+        
+        // When metadata is loaded, we can continue
+        const onMetadata = () => {
+          setLoadingProgress(100);
+          gsap.to('.preloader-screen', {
+            opacity: 0,
+            duration: 0.6,
+            onComplete: () => setIsPreloading(false)
+          });
+        };
+        audio.addEventListener('loadedmetadata', onMetadata);
+      }
+    };
+
+    loadAudioFile();
 
     const handleTimeUpdate = () => {
       if (!audioRef.current || isFadingOutRef.current) return;
@@ -228,6 +298,18 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* 0. Preloader Screen overlay */}
+      {isPreloading && (
+        <div className="preloader-screen">
+          <div className="loader-container">
+            <div className="loader-ring"></div>
+            <div className="loader-ring-inner"></div>
+            <span className="loader-text">{loadingProgress}%</span>
+          </div>
+          <p className="loader-hint">Preloading Audio</p>
+        </div>
+      )}
+
       {/* Background Visual Layer */}
       <div className="bg-container">
         <div className="blob blob-1"></div>
@@ -244,7 +326,7 @@ function App() {
       </div>
 
       {/* 1. Center Play Screen */}
-      {showPlayScreen && (
+      {showPlayScreen && !isPreloading && (
         <PlayButton
           isVisible={showPlayScreen}
           onClick={handlePlayStart}
